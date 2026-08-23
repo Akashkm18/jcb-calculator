@@ -8,6 +8,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
+// ===============================
+// HISTORY SCHEMA
+// ===============================
+
 const historySchema = new mongoose.Schema(
   {
     customer: {
@@ -30,6 +35,8 @@ const historySchema = new mongoose.Schema(
       required: true
     },
 
+    // Keep diesel for old records.
+    // It will NOT be added to total.
     diesel: {
       type: Number,
       default: 0
@@ -40,6 +47,13 @@ const historySchema = new mongoose.Schema(
       required: true
     },
 
+    // Driver Bata
+    driverBata: {
+      type: Number,
+      default: 0
+    },
+
+    // workAmount + driverBata
     finalAmount: {
       type: Number,
       required: true
@@ -50,88 +64,154 @@ const historySchema = new mongoose.Schema(
   }
 );
 
+
 const History = mongoose.model("History", historySchema);
 
+
+// ===============================
+// HOME
+// ===============================
+
 app.get("/", (req, res) => {
-  res.send("JCB Backend is running");
+  res.send("Chowdeshwari Earth Movers Backend is running");
 });
+
+
+// ===============================
+// SAVE HISTORY
+// ===============================
 
 app.post("/history", async (req, res) => {
   try {
+
+    const customer = req.body.customer || "N/A";
+    const jcbNumber = req.body.jcbNumber || "N/A";
+
+    const hours = Number(req.body.hours) || 0;
+    const rate = Number(req.body.rate) || 0;
+
+    // Diesel is stored separately.
+    // It is NOT included in final amount.
+    const diesel = Number(req.body.diesel) || 0;
+
+    const driverBata = Number(req.body.driverBata) || 0;
+
+    // Calculate work amount on backend
+    const workAmount = hours * rate;
+
+    // Diesel is NOT included
+    const finalAmount = workAmount + driverBata;
+
+
     const newHistory = new History({
-      customer: req.body.customer,
-      jcbNumber: req.body.jcbNumber,
-      hours: req.body.hours,
-      rate: req.body.rate,
-      diesel: req.body.diesel,
-      workAmount: req.body.workAmount,
-      finalAmount: req.body.finalAmount
+      customer,
+      jcbNumber,
+      hours,
+      rate,
+      diesel,
+      workAmount,
+      driverBata,
+      finalAmount
     });
 
+
     const savedHistory = await newHistory.save();
+
 
     res.status(201).json({
       message: "History saved successfully",
       data: savedHistory
     });
+
   } catch (error) {
+
     console.error("Save error:", error);
 
     res.status(500).json({
       message: "History save failed",
       error: error.message
     });
+
   }
 });
 
+
+// ===============================
+// GET HISTORY
+// ===============================
+
 app.get("/history", async (req, res) => {
   try {
+
     const history = await History
       .find()
       .sort({ createdAt: -1 });
 
     res.json(history);
+
   } catch (error) {
+
     console.error("Fetch error:", error);
 
     res.status(500).json({
       message: "History fetch failed",
       error: error.message
     });
+
   }
 });
 
+
+// ===============================
+// CLEAR HISTORY
+// ===============================
+
 app.delete("/history", async (req, res) => {
   try {
+
     await History.deleteMany({});
 
     res.json({
       message: "History cleared successfully"
     });
+
   } catch (error) {
+
     console.error("Delete error:", error);
 
     res.status(500).json({
       message: "History clear failed",
       error: error.message
     });
+
   }
 });
+
+
+// ===============================
+// MONGODB CONNECTION
+// ===============================
 
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
+
     console.log("MongoDB connected");
 
     const PORT = process.env.PORT || 5000;
 
     app.listen(PORT, () => {
-      console.log("Server running on port " + PORT);
+      console.log(
+        "Chowdeshwari Earth Movers server running on port " + PORT
+      );
     });
+
   })
   .catch((error) => {
+
     console.log(
       "MongoDB connection error:",
       error.message
     );
+
   });
