@@ -13,7 +13,7 @@ function App() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch("https://jcb-calculator-5.onrender.com/history");
+      const response = await fetch("https://jcb-calculator-4.onrender.com/history");
       const data = await response.json();
       setHistory(data);
     } catch (error) {
@@ -38,7 +38,7 @@ function App() {
     setTotal(result);
 
     try {
-      await fetch("https://jcb-calculator-5.onrender.com/history", {
+      await fetch("https://jcb-calculator-4.onrender.com/history", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -62,9 +62,9 @@ function App() {
 
   const clearHistory = async () => {
     try {
-      await fetch("https://jcb-calculator-5.onrender.com/history", {
+    await fetch("https://jcb-calculator-4.onrender.com/history", {
         method: "DELETE"
-      });
+    });
 
       setHistory([]);
     } catch (error) {
