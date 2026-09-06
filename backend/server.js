@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const axios = require("axios");
 require("dotenv").config();
 
 const app = express();
@@ -35,8 +36,6 @@ const historySchema = new mongoose.Schema(
       required: true
     },
 
-    // Keep diesel for old records.
-    // It will NOT be added to total.
     diesel: {
       type: Number,
       default: 0
@@ -47,13 +46,11 @@ const historySchema = new mongoose.Schema(
       required: true
     },
 
-    // Driver Bata
     driverBata: {
       type: Number,
       default: 0
     },
 
-    // workAmount + driverBata
     finalAmount: {
       type: Number,
       required: true
@@ -63,7 +60,6 @@ const historySchema = new mongoose.Schema(
     timestamps: true
   }
 );
-
 
 const History = mongoose.model("History", historySchema);
 
@@ -83,25 +79,16 @@ app.get("/", (req, res) => {
 
 app.post("/history", async (req, res) => {
   try {
-
     const customer = req.body.customer || "N/A";
     const jcbNumber = req.body.jcbNumber || "N/A";
 
     const hours = Number(req.body.hours) || 0;
     const rate = Number(req.body.rate) || 0;
-
-    // Diesel is stored separately.
-    // It is NOT included in final amount.
     const diesel = Number(req.body.diesel) || 0;
-
     const driverBata = Number(req.body.driverBata) || 0;
 
-    // Calculate work amount on backend
     const workAmount = hours * rate;
-
-    // Diesel is NOT included
     const finalAmount = workAmount + driverBata;
-
 
     const newHistory = new History({
       customer,
@@ -114,9 +101,7 @@ app.post("/history", async (req, res) => {
       finalAmount
     });
 
-
     const savedHistory = await newHistory.save();
-
 
     res.status(201).json({
       message: "History saved successfully",
@@ -124,14 +109,12 @@ app.post("/history", async (req, res) => {
     });
 
   } catch (error) {
-
     console.error("Save error:", error);
 
     res.status(500).json({
       message: "History save failed",
       error: error.message
     });
-
   }
 });
 
@@ -142,7 +125,6 @@ app.post("/history", async (req, res) => {
 
 app.get("/history", async (req, res) => {
   try {
-
     const history = await History
       .find()
       .sort({ createdAt: -1 });
@@ -150,40 +132,60 @@ app.get("/history", async (req, res) => {
     res.json(history);
 
   } catch (error) {
-
     console.error("Fetch error:", error);
 
     res.status(500).json({
       message: "History fetch failed",
       error: error.message
     });
-
   }
 });
 
 
 // ===============================
-// CLEAR HISTORY
+// MSG91 OTP VERIFICATION
 // ===============================
 
-app.delete("/history", async (req, res) => {
+app.post("/auth/verify", async (req, res) => {
   try {
+    const { accessToken } = req.body;
 
-    await History.deleteMany({});
+    if (!accessToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Access token is required"
+      });
+    }
+
+    const response = await axios.post(
+      "https://control.msg91.com/api/v5/widget/verifyAccessToken",
+      {
+        authkey: process.env.MSG91_AUTHKEY,
+        "access-token": accessToken
+      },
+      {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
 
     res.json({
-      message: "History cleared successfully"
+      success: true,
+      message: "OTP verified successfully",
+      data: response.data
     });
 
   } catch (error) {
+    console.error(
+      "MSG91 verification error:",
+      error.response?.data || error.message
+    );
 
-    console.error("Delete error:", error);
-
-    res.status(500).json({
-      message: "History clear failed",
-      error: error.message
+    res.status(401).json({
+      success: false,
+      message: "OTP verification failed"
     });
-
   }
 });
 
@@ -195,7 +197,6 @@ app.delete("/history", async (req, res) => {
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-
     console.log("MongoDB connected");
 
     const PORT = process.env.PORT || 5000;
@@ -205,13 +206,10 @@ mongoose
         "Chowdeshwari Earth Movers server running on port " + PORT
       );
     });
-
   })
   .catch((error) => {
-
-    console.log(
+    console.error(
       "MongoDB connection error:",
       error.message
     );
-
   });
